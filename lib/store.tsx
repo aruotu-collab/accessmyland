@@ -49,11 +49,13 @@ function loadState(): AppState {
 
 interface StoreValue {
   ready: boolean;
+  sessionUser: User | null;
   user: User | null;
   cases: AccessCase[];
   activity: ActivityItem[];
   login: (userId: string) => void;
   logout: () => void;
+  signOut: () => Promise<void>;
   reset: () => void;
   getCase: (id: string) => AccessCase | undefined;
   identifyOwner: (caseId: string, name: string, email?: string) => void;
@@ -80,11 +82,36 @@ const StoreContext = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(emptyState);
+  const [sessionUser, setSessionUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setState(loadState());
-    setReady(true);
+    let cancelled = false;
+    async function boot() {
+      const local = loadState();
+      let nextSession: User | null = null;
+      try {
+        const res = await fetch("/api/auth/session", { cache: "no-store" });
+        if (res.ok) {
+          const data = (await res.json()) as { user: User | null };
+          nextSession = data.user;
+        }
+      } catch {
+        nextSession = null;
+      }
+      if (cancelled) return;
+      setSessionUser(nextSession);
+      setState(
+        nextSession
+          ? local
+          : { ...local, currentUserId: null },
+      );
+      setReady(true);
+    }
+    void boot();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -114,18 +141,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const user = useMemo(
-    () => USERS.find((u) => u.id === state.currentUserId) ?? null,
-    [state.currentUserId],
-  );
+  const user = useMemo(() => {
+    if (!sessionUser) return null;
+    return USERS.find((u) => u.id === state.currentUserId) ?? sessionUser;
+  }, [sessionUser, state.currentUserId]);
 
   const value: StoreValue = {
     ready,
+    sessionUser,
     user,
     cases: state.cases,
     activity: state.activity,
     login: (userId) =>
       setState((s) => {
+        if (!sessionUser) return s;
         const next = { ...s, currentUserId: userId };
         localStorage.setItem(KEY, JSON.stringify(next));
         return next;
@@ -136,6 +165,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(KEY, JSON.stringify(next));
         return next;
       }),
+    signOut: async () => {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setSessionUser(null);
+      setState((s) => {
+        const next = { ...s, currentUserId: null };
+        localStorage.setItem(KEY, JSON.stringify(next));
+        return next;
+      });
+    },
     reset: () =>
       setState({
         version: VERSION,

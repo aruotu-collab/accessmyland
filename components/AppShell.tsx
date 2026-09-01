@@ -26,7 +26,7 @@ const NAV = [
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, ready, logout } = useStore();
+  const { user, sessionUser, ready, signOut } = useStore();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -77,13 +77,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="mt-1 font-medium">{user.name}</div>
           <div className="text-xs text-cream/60">{user.org}</div>
           <button
-            onClick={() => {
-              logout();
-              router.push("/login");
-            }}
+            onClick={() => router.push("/login?seat=1")}
             className="mt-3 flex items-center gap-2 text-xs text-cream/60 hover:text-brass"
           >
-            <IconLogout className="h-3.5 w-3.5" /> Switch role
+            Switch workspace
+          </button>
+          <button
+            onClick={async () => {
+              await signOut();
+              router.push("/login");
+            }}
+            className="mt-2 flex items-center gap-2 text-xs text-cream/60 hover:text-brass"
+          >
+            <IconLogout className="h-3.5 w-3.5" /> Sign out
           </button>
         </div>
       </aside>
@@ -101,17 +107,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 : "Your land, your terms"}
           </div>
           <div className="flex items-center gap-3">
-            <span className="rounded-full bg-cream px-3 py-1 text-xs font-medium text-forest">
-              Demo · stored in this browser
+            <span className="hidden rounded-full bg-cream px-3 py-1 text-xs font-medium text-forest sm:inline">
+              {sessionUser?.email ?? "Signed in"}
             </span>
             <button
-              onClick={() => {
-                logout();
+              onClick={() => router.push("/login?seat=1")}
+              className="text-xs font-medium text-slate hover:text-forest"
+            >
+              Switch workspace
+            </button>
+            <button
+              onClick={async () => {
+                await signOut();
                 router.push("/login");
               }}
               className="text-xs font-medium text-slate hover:text-forest"
             >
-              Switch role
+              Sign out
             </button>
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-forest text-xs font-semibold text-cream">
               {user.initials}
