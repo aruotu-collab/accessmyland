@@ -158,11 +158,30 @@ export function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function isLocalHost(value: string) {
+  return /localhost|127\.0\.0\.1/i.test(value);
+}
+
 export function appUrl(request: Request) {
-  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
-  const origin = new URL(request.url).origin;
-  if (origin.includes("localhost") || origin.includes("127.0.0.1")) return origin;
-  return "https://www.accessmyland.com";
+  const host =
+    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ||
+    request.headers.get("host") ||
+    "";
+  const proto =
+    request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
+    (isLocalHost(host) ? "http" : "https");
+
+  if (host && !isLocalHost(host)) {
+    return `${proto}://${host}`.replace(/\/$/, "");
+  }
+
+  const configured = process.env.APP_URL?.replace(/\/$/, "");
+  if (configured && !isLocalHost(configured)) {
+    return configured;
+  }
+
+  if (host) return `${proto}://${host}`.replace(/\/$/, "");
+  return configured || "https://www.accessmyland.com";
 }
 
 export function sessionCookieOptions() {

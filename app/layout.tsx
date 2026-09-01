@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, Instrument_Serif } from "next/font/google";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 import { StoreProvider } from "@/lib/store";
 import "./globals.css";
 
@@ -24,6 +25,9 @@ export const metadata: Metadata = {
   description:
     "The operating system for obtaining third-party land access. Negotiate compensation, generate licences, evidence visits and outsource cases to independent land agents.",
   icons: { icon: "/icon.svg" },
+  verification: {
+    google: "eS7Pwt48PVlw76Bj_-91ODREsEhq_2tctf_g4cMG-w8",
+  },
 };
 
 export default function RootLayout({
@@ -38,6 +42,7 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-paper text-ink">
         <StoreProvider>{children}</StoreProvider>
+        <GoogleAnalytics />
       </body>
     </html>
   );
