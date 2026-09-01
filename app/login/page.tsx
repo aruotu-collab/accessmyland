@@ -16,7 +16,7 @@ const BLURB = {
 };
 
 function LoginForm() {
-  const { login, user, sessionUser, ready, signOut } = useStore();
+  const { login, user, sessionUser, profileComplete, ready, signOut } = useStore();
   const router = useRouter();
   const params = useSearchParams();
   const pickingSeat = params.get("seat") === "1";
@@ -30,8 +30,13 @@ function LoginForm() {
   );
 
   useEffect(() => {
-    if (ready && user && !pickingSeat) router.replace("/dashboard");
-  }, [ready, user, pickingSeat, router]);
+    if (!ready || !user) return;
+    if (!profileComplete) {
+      router.replace("/welcome");
+      return;
+    }
+    if (!pickingSeat) router.replace("/dashboard");
+  }, [ready, user, profileComplete, pickingSeat, router]);
 
   async function sendLink(event: FormEvent) {
     event.preventDefault();

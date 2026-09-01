@@ -11,24 +11,33 @@ export function nameFromEmail(email: string) {
     .join(" ");
 }
 
-export function userFromEmail(email: string): User {
+export function initialsFromName(name: string) {
+  return (
+    name
+      .split(" ")
+      .map((part) => part[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "AM"
+  );
+}
+
+export function userFromEmail(
+  email: string,
+  profile?: { name?: string; org?: string },
+): User {
   const normalised = email.toLowerCase().trim();
   const known = USERS.find((u) => u.email.toLowerCase() === normalised);
-  if (known) return known;
-  const name = nameFromEmail(normalised);
-  const initials = name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const name = profile?.name?.trim() || known?.name || nameFromEmail(normalised);
+  const org = profile?.org?.trim() || known?.org || "AccessMyLand";
+  if (known && !profile?.name && !profile?.org) return known;
   return {
-    id: `u-${normalised}`,
+    id: known?.id ?? `u-${normalised}`,
     name,
-    email: normalised,
-    role: "operator",
-    org: "AccessMyLand",
-    title: "Signed in",
-    initials: initials || "AM",
+    email: known?.email ?? normalised,
+    role: known?.role ?? "operator",
+    org,
+    title: known?.title ?? "Signed in",
+    initials: initialsFromName(name),
   };
 }

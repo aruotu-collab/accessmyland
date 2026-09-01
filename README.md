@@ -15,7 +15,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Sign in
 
-Enter your email on `/login`. AccessMyLand sends a magic link via Resend — no password.
+Enter your email on `/login`. AccessMyLand sends a magic link via Resend — no password. The first visit asks for your name and, optionally, your company.
 
 After you are in, **Switch workspace** still opens the three demo seats (operator, land agent, landowner) so you can walk the Lincolnshire programme.
 

@@ -10,12 +10,17 @@ export default function PlatformLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { ready, user } = useStore();
+  const { ready, user, profileComplete } = useStore();
   const router = useRouter();
 
   useEffect(() => {
-    if (ready && !user) router.replace("/login");
-  }, [ready, user, router]);
+    if (!ready) return;
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (!profileComplete) router.replace("/welcome");
+  }, [ready, user, profileComplete, router]);
 
   return <AppShell>{children}</AppShell>;
 }

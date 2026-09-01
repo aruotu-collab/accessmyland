@@ -26,15 +26,20 @@ const NAV = [
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, sessionUser, ready, signOut } = useStore();
+  const { user, sessionUser, profileComplete, ready, signOut } = useStore();
   const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
-    if (ready && !user) router.replace("/login");
-  }, [ready, user, router]);
+    if (!ready) return;
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (!profileComplete) router.replace("/welcome");
+  }, [ready, user, profileComplete, router]);
 
-  if (!ready || !user) {
+  if (!ready || !user || !profileComplete) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-paper text-slate">
         Loading workspace…

@@ -50,12 +50,14 @@ function loadState(): AppState {
 interface StoreValue {
   ready: boolean;
   sessionUser: User | null;
+  profileComplete: boolean;
   user: User | null;
   cases: AccessCase[];
   activity: ActivityItem[];
   login: (userId: string) => void;
   logout: () => void;
   signOut: () => Promise<void>;
+  completeProfile: (name: string, org?: string) => Promise<void>;
   reset: () => void;
   getCase: (id: string) => AccessCase | undefined;
   identifyOwner: (caseId: string, name: string, email?: string) => void;
@@ -83,6 +85,7 @@ const StoreContext = createContext<StoreValue | null>(null);
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(emptyState);
   const [sessionUser, setSessionUser] = useState<User | null>(null);
+  const [profileComplete, setProfileComplete] = useState(false);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -90,17 +93,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     async function boot() {
       const local = loadState();
       let nextSession: User | null = null;
+      let nextComplete = false;
       try {
         const res = await fetch("/api/auth/session", { cache: "no-store" });
         if (res.ok) {
-          const data = (await res.json()) as { user: User | null };
+          const data = (await res.json()) as {
+            user: User | null;
+            profileComplete?: boolean;
+          };
           nextSession = data.user;
+          nextComplete = Boolean(data.user && data.profileComplete);
         }
       } catch {
         nextSession = null;
       }
       if (cancelled) return;
       setSessionUser(nextSession);
+      setProfileComplete(nextComplete);
       setState(
         nextSession
           ? local
@@ -146,9 +155,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return USERS.find((u) => u.id === state.currentUserId) ?? sessionUser;
   }, [sessionUser, state.currentUserId]);
 
+  const completeProfile = useCallback(async (name: string, org?: string) => {
+    const res = await fetch("/api/auth/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, org }),
+    });
+    const data = (await res.json()) as { user?: User; error?: string };
+    if (!res.ok || !data.user) {
+      throw new Error(data.error ?? "Could not save your details.");
+    }
+    setSessionUser(data.user);
+    setProfileComplete(true);
+  }, []);
+
   const value: StoreValue = {
     ready,
     sessionUser,
+    profileComplete,
     user,
     cases: state.cases,
     activity: state.activity,
@@ -168,12 +192,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     signOut: async () => {
       await fetch("/api/auth/logout", { method: "POST" });
       setSessionUser(null);
+      setProfileComplete(false);
       setState((s) => {
         const next = { ...s, currentUserId: null };
         localStorage.setItem(KEY, JSON.stringify(next));
         return next;
       });
     },
+    completeProfile,
     reset: () =>
       setState({
         version: VERSION,
