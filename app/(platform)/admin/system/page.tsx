@@ -11,7 +11,7 @@ type SystemInfo = {
     analytics: boolean;
   };
   runtime: "vercel" | "local";
-  stats: { totalVisits: number; accounts: number };
+  stats: { totalVisits: number; accounts: number; planningOpen?: number };
 };
 
 export default function AdminSystemPage() {
@@ -87,6 +87,12 @@ export default function AdminSystemPage() {
             <dt>Known accounts</dt>
             <dd className="text-forest">{info?.stats.accounts ?? "—"}</dd>
           </div>
+          <div className="flex justify-between">
+            <dt>Deal watch</dt>
+            <dd className="text-forest">
+              Daily 06:00 UTC · {info?.stats.planningOpen ?? 0} open
+            </dd>
+          </div>
         </dl>
       </section>
 
@@ -111,6 +117,16 @@ export default function AdminSystemPage() {
               rel="noreferrer"
             >
               Google Search Console
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://www.planning.data.gov.uk/dataset/infrastructure-project"
+              className="text-forest hover:text-brass-deep"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Planning Data · infrastructure projects
             </a>
           </li>
           <li>

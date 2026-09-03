@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
+import type { DealSuggestion } from "./planning-watch";
 
 export type WebVisit = {
   id: string;
@@ -44,15 +45,25 @@ export type AdminEvent = {
   country: string;
 };
 
+export type PlanningMeta = {
+  lastScanAt: string;
+  lastError: string;
+  lastAdded: number;
+  lastScanned: number;
+};
+
 type AdminStore = {
   visits: WebVisit[];
   accounts: AccountRecord[];
   events: AdminEvent[];
+  planning: DealSuggestion[];
+  planningMeta: PlanningMeta;
 };
 
 const MAX_VISITS = 2000;
 const MAX_EVENTS = 500;
 const MAX_ACCOUNTS = 500;
+const MAX_PLANNING = 400;
 const DEDUPE_MS = 45_000;
 
 const globalForStore = globalThis as typeof globalThis & {
@@ -60,8 +71,27 @@ const globalForStore = globalThis as typeof globalThis & {
   __amlAdminWrite?: Promise<void>;
 };
 
+function emptyPlanningMeta(): PlanningMeta {
+  return { lastScanAt: "", lastError: "", lastAdded: 0, lastScanned: 0 };
+}
+
 function emptyStore(): AdminStore {
-  return { visits: [], accounts: [], events: [] };
+  return {
+    visits: [],
+    accounts: [],
+    events: [],
+    planning: [],
+    planningMeta: emptyPlanningMeta(),
+  };
+}
+
+function normalizeStore(store: AdminStore): AdminStore {
+  if (!Array.isArray(store.visits)) store.visits = [];
+  if (!Array.isArray(store.accounts)) store.accounts = [];
+  if (!Array.isArray(store.events)) store.events = [];
+  if (!Array.isArray(store.planning)) store.planning = [];
+  if (!store.planningMeta) store.planningMeta = emptyPlanningMeta();
+  return store;
 }
 
 function storePath() {
@@ -72,15 +102,19 @@ function storePath() {
 }
 
 async function readStore(): Promise<AdminStore> {
-  if (globalForStore.__amlAdminStore) return globalForStore.__amlAdminStore;
+  if (globalForStore.__amlAdminStore) {
+    return normalizeStore(globalForStore.__amlAdminStore);
+  }
   try {
     const raw = await readFile(storePath(), "utf8");
     const parsed = JSON.parse(raw) as AdminStore;
-    const store: AdminStore = {
+    const store = normalizeStore({
       visits: Array.isArray(parsed.visits) ? parsed.visits : [],
       accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
       events: Array.isArray(parsed.events) ? parsed.events : [],
-    };
+      planning: Array.isArray(parsed.planning) ? parsed.planning : [],
+      planningMeta: parsed.planningMeta ?? emptyPlanningMeta(),
+    });
     globalForStore.__amlAdminStore = store;
     return store;
   } catch {
@@ -264,6 +298,70 @@ export async function listEvents() {
   return store.events;
 }
 
+export async function listPlanning() {
+  const store = await readStore();
+  return {
+    suggestions: store.planning,
+    meta: store.planningMeta,
+  };
+}
+
+export async function mergePlanningScan(found: DealSuggestion[]) {
+  const at = new Date().toISOString();
+  return mutate((store) => {
+    let added = 0;
+    let updated = 0;
+    for (const item of found) {
+      const existing = store.planning.find((row) => row.id === item.id);
+      if (existing) {
+        existing.lastSeenAt = at;
+        existing.name = item.name;
+        existing.summary = item.summary;
+        existing.authorities = item.authorities;
+        existing.lat = item.lat;
+        existing.lng = item.lng;
+        existing.url = item.url;
+        existing.sector = item.sector;
+        updated += 1;
+        continue;
+      }
+      store.planning.push({ ...item, firstSeenAt: at, lastSeenAt: at });
+      added += 1;
+    }
+    store.planning = store.planning
+      .sort((a, b) => Date.parse(b.lastSeenAt) - Date.parse(a.lastSeenAt))
+      .slice(0, MAX_PLANNING);
+    store.planningMeta = {
+      lastScanAt: at,
+      lastError: "",
+      lastAdded: added,
+      lastScanned: found.length,
+    };
+    return { added, updated, scanned: found.length, suggestions: store.planning, meta: store.planningMeta };
+  });
+}
+
+export async function recordPlanningError(message: string) {
+  await mutate((store) => {
+    store.planningMeta = {
+      ...store.planningMeta,
+      lastScanAt: new Date().toISOString(),
+      lastError: message.slice(0, 300),
+    };
+  });
+}
+
+export async function setPlanningStatus(
+  id: string,
+  status: DealSuggestion["status"],
+) {
+  return mutate((store) => {
+    const row = store.planning.find((item) => item.id === id);
+    if (row) row.status = status;
+    return row ?? null;
+  });
+}
+
 export async function clearVisits() {
   await mutate((store) => {
     store.visits = [];
@@ -295,6 +393,8 @@ export async function visitStats() {
     magicLinks24h: events24h.filter((event) => event.kind === "magic_link").length,
     accounts: store.accounts.length,
     totalVisits: store.visits.length,
+    planningOpen: store.planning.filter((item) => item.status === "new").length,
+    planningTotal: store.planning.length,
     topCountries: rank(countries),
     topPages: rank(pages),
   };

@@ -11,6 +11,8 @@ type Stats = {
   magicLinks24h: number;
   accounts: number;
   totalVisits: number;
+  planningOpen?: number;
+  planningTotal?: number;
   topCountries: { label: string; count: number }[];
   topPages: { label: string; count: number }[];
 };
@@ -68,8 +70,8 @@ export default function AdminOverviewPage() {
         </p>
         <h1 className="mt-1 font-serif text-4xl text-forest">Site control</h1>
         <p className="mt-2 max-w-2xl text-slate">
-          Visible only on aruotu@gmail.com. Review traffic, sign-ins, and the
-          live workspace from here.
+          Visible only on aruotu@gmail.com. Review traffic, sign-ins, the
+          Lincolnshire deal watch, and the live workspace from here.
         </p>
       </div>
 
@@ -81,6 +83,10 @@ export default function AdminOverviewPage() {
           { l: "Unique IPs, 24 hours", v: stats ? String(stats.uniqueIps24h) : "—" },
           { l: "Sign-ins, 24 hours", v: stats ? String(stats.signIns24h) : "—" },
           { l: "Accounts seen", v: stats ? String(stats.accounts) : "—" },
+          {
+            l: "Open deal suggestions",
+            v: stats ? String(stats.planningOpen ?? 0) : "—",
+          },
         ].map((card) => (
           <div key={card.l} className="rounded-2xl bg-white p-5 hairline">
             <div className="text-xs uppercase tracking-[0.16em] text-slate">
@@ -109,6 +115,19 @@ export default function AdminOverviewPage() {
               ),
             )}
           </ul>
+        </section>
+        <section className="rounded-2xl bg-white p-5 hairline">
+          <div className="flex items-center justify-between">
+            <h2 className="font-serif text-2xl text-forest">Deal watch</h2>
+            <Link href="/admin/deals" className="text-sm text-forest hover:text-brass-deep">
+              Open suggestions
+            </Link>
+          </div>
+          <p className="mt-3 text-sm text-slate">
+            {stats
+              ? `${stats.planningOpen ?? 0} open Lincolnshire infrastructure schemes from the official register.`
+              : "Loading watch list…"}
+          </p>
         </section>
         <section className="rounded-2xl bg-white p-5 hairline">
           <h2 className="font-serif text-2xl text-forest">Most viewed pages</h2>

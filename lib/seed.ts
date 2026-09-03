@@ -150,6 +150,19 @@ export const PROJECTS: Project[] = [
     description: "Duct and chamber access along a rural fibre spine.",
     caseIds: ["c-marston", "c-billingborough", "c-beckingham"],
   },
+  {
+    id: "p-watch",
+    name: "Lincolnshire opportunity watch",
+    code: "WATCH-LINCS",
+    sector: "electricity",
+    client: "Planning Data / Planning Inspectorate",
+    county: "Lincolnshire",
+    startDate: "2026-01-01",
+    endDate: "2027-12-31",
+    description:
+      "Nationally significant infrastructure and access-relevant planning applications scanned from official registers.",
+    caseIds: [],
+  },
 ];
 
 function poly(lat: number, lng: number, dx = 0.012, dy = 0.008): [number, number][] {

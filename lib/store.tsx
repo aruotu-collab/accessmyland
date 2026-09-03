@@ -11,10 +11,12 @@ import {
 import { AGENTS, ACTIVITY, CASES, PROJECTS, USERS } from "./seed";
 import type {
   AccessCase,
+  AccessType,
   ActivityItem,
   AppState,
   CaseStatus,
   OfferFrom,
+  Sector,
   User,
 } from "./types";
 
@@ -78,6 +80,16 @@ interface StoreValue {
   listMarketplace: (caseId: string, professionalFee: number) => void;
   claimCase: (caseId: string, agentId: string) => void;
   toggleCondition: (caseId: string, conditionId: string) => void;
+  importWatchCase: (input: {
+    reference: string;
+    name: string;
+    summary: string;
+    authorities: string[];
+    lat: number | null;
+    lng: number | null;
+    url: string;
+    sector: string;
+  }) => string;
 }
 
 const StoreContext = createContext<StoreValue | null>(null);
@@ -408,6 +420,77 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }),
         "Access condition updated.",
       ),
+    importWatchCase: (input) => {
+      const existing = state.cases.find(
+        (item) => item.notes.includes(input.reference) && item.notes.includes("Planning watch"),
+      );
+      if (existing) return existing.id;
+      const lat = input.lat ?? 53.02;
+      const lng = input.lng ?? -0.41;
+      const id = `c-watch-${input.reference.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+      const sector = (input.sector || "electricity") as Sector;
+      const accessType: AccessType =
+        sector === "highways"
+          ? "construction"
+          : sector === "water"
+            ? "walkover"
+            : sector === "telecom"
+              ? "cable_pull"
+              : sector === "renewables"
+                ? "compound"
+                : "cable_pull";
+      const next: AccessCase = {
+        id,
+        ref: `AML-WATCH-${input.reference}`,
+        projectId: "p-watch",
+        parcel: {
+          id: `par-${id}`,
+          title: input.name,
+          osGrid: "",
+          areaHa: 0,
+          landUse: "arable",
+          county: "Lincolnshire",
+          lat,
+          lng,
+          polygon: [
+            [lat + 0.008, lng - 0.012],
+            [lat + 0.008, lng + 0.012],
+            [lat - 0.008, lng + 0.012],
+            [lat - 0.008, lng - 0.012],
+          ],
+        },
+        status: "identifying",
+        accessType,
+        durationDays: 0,
+        disturbance: "To be scoped from the published red-line boundary.",
+        cropImpact: "Unknown until owner and cropping are identified.",
+        owner: {
+          id: `pt-${id}`,
+          name: "Unknown — title pending",
+          role: "owner",
+        },
+        offers: [],
+        conditions: [],
+        evidence: [],
+        lastActivity: new Date().toISOString(),
+        notes: `Planning watch ${input.reference}. ${input.summary} ${input.authorities.join(", ")}. ${input.url}`,
+      };
+      setState((prev) => ({
+        ...prev,
+        cases: [next, ...prev.cases],
+        activity: [
+          {
+            id: `a-${Date.now()}`,
+            caseId: id,
+            at: new Date().toISOString(),
+            text: `Opened ${input.name} from the Lincolnshire planning watch.`,
+            by: sessionUser?.name ?? "Administrator",
+          },
+          ...prev.activity,
+        ].slice(0, 80),
+      }));
+      return id;
+    },
   };
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
