@@ -29,6 +29,9 @@ export type AccountRecord = {
   lastIp: string;
   lastCity: string;
   lastCountry: string;
+  name?: string;
+  org?: string;
+  profileComplete?: boolean;
 };
 
 export type AdminEvent = {
@@ -198,6 +201,52 @@ export async function recordAccountEvent(input: {
       ].slice(0, MAX_ACCOUNTS);
     }
   });
+}
+
+export async function saveAccountProfile(
+  email: string,
+  name: string,
+  org: string,
+) {
+  const normalised = email.toLowerCase().trim();
+  if (!normalised || !name.trim()) return;
+  const at = new Date().toISOString();
+  await mutate((store) => {
+    const existing = store.accounts.find((account) => account.email === normalised);
+    if (existing) {
+      existing.name = name.trim();
+      existing.org = org.trim();
+      existing.profileComplete = true;
+      existing.lastSeenAt = at;
+      return;
+    }
+    store.accounts = [
+      {
+        email: normalised,
+        firstSeenAt: at,
+        lastSeenAt: at,
+        lastSignInAt: "",
+        magicLinkCount: 0,
+        signInCount: 0,
+        lastIp: "",
+        lastCity: "",
+        lastCountry: "",
+        name: name.trim(),
+        org: org.trim(),
+        profileComplete: true,
+      },
+      ...store.accounts,
+    ].slice(0, MAX_ACCOUNTS);
+  });
+}
+
+export async function getAccountProfile(email: string) {
+  const store = await readStore();
+  const account = store.accounts.find(
+    (item) => item.email === email.toLowerCase().trim(),
+  );
+  if (!account?.profileComplete || !account.name) return null;
+  return { email: account.email, name: account.name, org: account.org ?? "" };
 }
 
 export async function listVisits() {

@@ -165,6 +165,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!res.ok || !data.user) {
       throw new Error(data.error ?? "Could not save your details.");
     }
+    try {
+      localStorage.setItem(
+        "aml-profile-v1",
+        JSON.stringify({ email: data.user.email, name, org: org ?? "" }),
+      );
+    } catch {
+      // Private browsing can block storage; cookies still hold the profile.
+    }
     setSessionUser(data.user);
     setProfileComplete(true);
   }, []);

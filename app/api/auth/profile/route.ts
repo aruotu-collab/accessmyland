@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
-import { recordAccountEvent } from "@/lib/admin-store";
+import { NextResponse } from "next/server";
+import { recordAccountEvent, saveAccountProfile } from "@/lib/admin-store";
 import {
   PROFILE_COOKIE,
   SESSION_COOKIE,
@@ -21,58 +22,59 @@ export async function POST(request: Request) {
     name = (body.name ?? "").trim();
     org = (body.org ?? "").trim();
   } catch {
-    return Response.json({ error: "Enter your name." }, { status: 400 });
+    return NextResponse.json({ error: "Enter your name." }, { status: 400 });
   }
 
   if (!isValidName(name)) {
-    return Response.json({ error: "Enter your name." }, { status: 400 });
+    return NextResponse.json({ error: "Enter your name." }, { status: 400 });
   }
   if (org.length > 80) {
-    return Response.json(
+    return NextResponse.json(
       { error: "Company name is too long." },
       { status: 400 },
     );
   }
 
   const jar = await cookies();
-  const session = readSessionToken(jar.get(SESSION_COOKIE)?.value);
-  if (!session) {
-    return Response.json({ error: "Sign in again." }, { status: 401 });
+  const current = readSessionToken(jar.get(SESSION_COOKIE)?.value);
+  if (!current) {
+    return NextResponse.json({ error: "Sign in again." }, { status: 401 });
   }
 
-  const nextSession = {
-    name,
-    org,
-    profileComplete: true,
-  };
-  jar.set(
-    SESSION_COOKIE,
-    createSessionToken(session.email, nextSession),
-    sessionCookieOptions(),
-  );
-  jar.set(
-    PROFILE_COOKIE,
-    createProfileToken({ email: session.email, name, org }),
-    profileCookieOptions(),
-  );
-
-  const place = requestPlace(request);
-  await recordAccountEvent({
-    kind: "profile",
-    email: session.email,
-    ip: place.ip,
-    city: place.city,
-    country: place.country,
-  });
-
-  return Response.json({
+  const response = NextResponse.json({
     user: userFromSession({
-      email: session.email,
+      email: current.email,
       name,
       org,
       profileComplete: true,
-      exp: session.exp,
+      exp: current.exp,
     }),
     profileComplete: true,
   });
+  response.cookies.set(
+    SESSION_COOKIE,
+    createSessionToken(current.email, { name, org, profileComplete: true }),
+    sessionCookieOptions(),
+  );
+  response.cookies.set(
+    PROFILE_COOKIE,
+    createProfileToken({ email: current.email, name, org }),
+    profileCookieOptions(),
+  );
+
+  try {
+    await saveAccountProfile(current.email, name, org);
+    const place = requestPlace(request);
+    await recordAccountEvent({
+      kind: "profile",
+      email: current.email,
+      ip: place.ip,
+      city: place.city,
+      country: place.country,
+    });
+  } catch {
+    // Profile cookies are already set; logging must not block sign-in.
+  }
+
+  return response;
 }

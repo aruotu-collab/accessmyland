@@ -1,15 +1,17 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { recordAccountEvent } from "@/lib/admin-store";
+import { getAccountProfile, recordAccountEvent } from "@/lib/admin-store";
 import {
   PROFILE_COOKIE,
   SESSION_COOKIE,
   appUrl,
+  createProfileToken,
   createSessionToken,
   readMagicToken,
   readProfileToken,
   readSessionToken,
   resolveSignInProfile,
+  profileCookieOptions,
   sessionCookieOptions,
 } from "@/lib/auth";
 import { requestPlace } from "@/lib/visit";
@@ -28,6 +30,7 @@ export async function GET(request: Request) {
     email,
     readSessionToken(jar.get(SESSION_COOKIE)?.value),
     readProfileToken(jar.get(PROFILE_COOKIE)?.value),
+    await getAccountProfile(email),
   );
 
   const next = profile.profileComplete ? "/dashboard" : "/welcome";
@@ -37,13 +40,28 @@ export async function GET(request: Request) {
     createSessionToken(email, profile),
     sessionCookieOptions(),
   );
-  const place = requestPlace(request);
-  await recordAccountEvent({
-    kind: "sign_in",
-    email,
-    ip: place.ip,
-    city: place.city,
-    country: place.country,
-  });
+  if (profile.profileComplete) {
+    response.cookies.set(
+      PROFILE_COOKIE,
+      createProfileToken({
+        email,
+        name: profile.name,
+        org: profile.org,
+      }),
+      profileCookieOptions(),
+    );
+  }
+  try {
+    const place = requestPlace(request);
+    await recordAccountEvent({
+      kind: "sign_in",
+      email,
+      ip: place.ip,
+      city: place.city,
+      country: place.country,
+    });
+  } catch {
+    // Sign-in cookies are already set.
+  }
   return response;
 }

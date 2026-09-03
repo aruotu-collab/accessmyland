@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "crypto";
+import { ADMIN_NAME, isAdminEmail } from "./admin";
 import { nameFromEmail, userFromEmail } from "./user-from-email";
 import type { User } from "./types";
 
@@ -118,10 +119,14 @@ export function resolveSignInProfile(
   email: string,
   session: Session | null,
   saved: SavedProfile | null,
+  stored?: SavedProfile | null,
 ) {
   const known = userFromEmail(email);
   if (saved && saved.email === email) {
     return { name: saved.name, org: saved.org, profileComplete: true };
+  }
+  if (stored && stored.email === email && stored.name) {
+    return { name: stored.name, org: stored.org, profileComplete: true };
   }
   if (session && session.email === email && session.profileComplete) {
     return {
@@ -132,6 +137,13 @@ export function resolveSignInProfile(
   }
   if (known.id !== `u-${email}`) {
     return { name: known.name, org: known.org, profileComplete: true };
+  }
+  if (isAdminEmail(email)) {
+    return {
+      name: session?.name && session.name !== nameFromEmail(email) ? session.name : ADMIN_NAME,
+      org: session?.org && session.org !== "AccessMyLand" ? session.org : "AccessMyLand",
+      profileComplete: true,
+    };
   }
   return {
     name: nameFromEmail(email),
@@ -170,12 +182,12 @@ export function appUrl(request: Request) {
   const proto =
     request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
     (isLocalHost(host) ? "http" : "https");
+  const configured = process.env.APP_URL?.replace(/\/$/, "");
 
-  if (host && !isLocalHost(host)) {
+  if (isLocalHost(host)) {
     return `${proto}://${host}`.replace(/\/$/, "");
   }
 
-  const configured = process.env.APP_URL?.replace(/\/$/, "");
   if (configured && !isLocalHost(configured)) {
     return configured;
   }
@@ -184,22 +196,32 @@ export function appUrl(request: Request) {
   return configured || "https://www.accessmyland.com";
 }
 
-export function sessionCookieOptions() {
+function cookieDomain() {
+  if (process.env.NODE_ENV !== "production") return undefined;
+  if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production") {
+    return undefined;
+  }
+  const app = process.env.APP_URL ?? "";
+  if (app.includes("accessmyland.com")) return ".accessmyland.com";
+  return undefined;
+}
+
+function sharedCookieOptions(maxAge: number) {
+  const domain = cookieDomain();
   return {
     httpOnly: true,
     sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: SESSION_TTL_MS / 1000,
+    maxAge,
+    ...(domain ? { domain } : {}),
   };
 }
 
+export function sessionCookieOptions() {
+  return sharedCookieOptions(SESSION_TTL_MS / 1000);
+}
+
 export function profileCookieOptions() {
-  return {
-    httpOnly: true,
-    sameSite: "lax" as const,
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: PROFILE_TTL_MS / 1000,
-  };
+  return sharedCookieOptions(PROFILE_TTL_MS / 1000);
 }
