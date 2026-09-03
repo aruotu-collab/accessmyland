@@ -16,6 +16,7 @@ export default function robots(): MetadataRoute.Robots {
         "/payments",
         "/intelligence",
         "/licence",
+        "/admin",
       ],
     },
     sitemap: "https://www.accessmyland.com/sitemap.xml",

@@ -1,3 +1,4 @@
+import { isAdminEmail } from "./admin";
 import type { User } from "./types";
 import { USERS } from "./seed";
 
@@ -30,14 +31,18 @@ export function userFromEmail(
   const known = USERS.find((u) => u.email.toLowerCase() === normalised);
   const name = profile?.name?.trim() || known?.name || nameFromEmail(normalised);
   const org = profile?.org?.trim() || known?.org || "AccessMyLand";
-  if (known && !profile?.name && !profile?.org) return known;
+  const isAdmin = isAdminEmail(normalised);
+  if (known && !profile?.name && !profile?.org) {
+    return { ...known, isAdmin };
+  }
   return {
     id: known?.id ?? `u-${normalised}`,
     name,
     email: known?.email ?? normalised,
     role: known?.role ?? "operator",
     org,
-    title: known?.title ?? "Signed in",
+    title: isAdmin ? "Administrator" : (known?.title ?? "Signed in"),
     initials: initialsFromName(name),
+    isAdmin,
   };
 }

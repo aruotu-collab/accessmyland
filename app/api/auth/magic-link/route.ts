@@ -1,10 +1,12 @@
 import { Resend } from "resend";
+import { recordAccountEvent } from "@/lib/admin-store";
 import {
   appUrl,
   createMagicToken,
   isValidEmail,
 } from "@/lib/auth";
 import { magicLinkHtml, magicLinkText } from "@/lib/email";
+import { requestPlace } from "@/lib/visit";
 
 export async function POST(request: Request) {
   let email = "";
@@ -51,6 +53,15 @@ export async function POST(request: Request) {
       { status: 502 },
     );
   }
+
+  const place = requestPlace(request);
+  await recordAccountEvent({
+    kind: "magic_link",
+    email,
+    ip: place.ip,
+    city: place.city,
+    country: place.country,
+  });
 
   return Response.json({ ok: true });
 }

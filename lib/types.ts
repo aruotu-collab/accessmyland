@@ -53,6 +53,7 @@ export interface User {
   org: string;
   title: string;
   initials: string;
+  isAdmin?: boolean;
 }
 
 export interface Project {

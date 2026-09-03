@@ -11,6 +11,7 @@ import {
   IconGrid,
   IconLogout,
   IconMap,
+  IconShield,
   IconUsers,
 } from "./icons";
 import { PROJECTS, useStore } from "@/lib/store";
@@ -48,6 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const items = NAV.filter((n) => n.roles.includes(user.role));
+  const showAdmin = Boolean(sessionUser?.isAdmin);
 
   return (
     <div className="min-h-screen bg-paper">
@@ -74,6 +76,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+          {showAdmin ? (
+            <Link
+              href="/admin"
+              className={`mt-3 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm ${
+                pathname.startsWith("/admin")
+                  ? "bg-brass/20 text-brass"
+                  : "text-brass/80 hover:bg-white/5 hover:text-brass"
+              }`}
+            >
+              <IconShield className="h-4 w-4" />
+              Admin
+            </Link>
+          ) : null}
         </nav>
         <div className="border-t border-white/10 p-4">
           <div className="text-xs uppercase tracking-[0.16em] text-brass/80">
@@ -105,11 +120,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Logo markClass="h-7 w-7" />
           </div>
           <div className="hidden text-sm text-slate lg:block">
-            {user.role === "operator"
-              ? `${PROJECTS.length} live projects · Lincolnshire`
-              : user.role === "agent"
-                ? "Independent land agent workspace"
-                : "Your land, your terms"}
+            {pathname.startsWith("/admin")
+              ? "Administrator"
+              : user.role === "operator"
+                ? `${PROJECTS.length} live projects · Lincolnshire`
+                : user.role === "agent"
+                  ? "Independent land agent workspace"
+                  : "Your land, your terms"}
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden rounded-full bg-cream px-3 py-1 text-xs font-medium text-forest sm:inline">
@@ -151,6 +168,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+          {showAdmin ? (
+            <Link
+              href="/admin"
+              className={`whitespace-nowrap rounded-full px-3 py-2 text-xs font-medium ${
+                pathname.startsWith("/admin") ? "bg-forest text-cream" : "text-slate"
+              }`}
+            >
+              Admin
+            </Link>
+          ) : null}
         </nav>
       </div>
     </div>

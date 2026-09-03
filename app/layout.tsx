@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { DM_Sans, Instrument_Serif } from "next/font/google";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
+import { VisitBeacon } from "@/components/VisitBeacon";
 import { StoreProvider } from "@/lib/store";
 import "./globals.css";
 
@@ -42,6 +43,7 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-paper text-ink">
         <StoreProvider>{children}</StoreProvider>
+        <VisitBeacon />
         <GoogleAnalytics />
       </body>
     </html>

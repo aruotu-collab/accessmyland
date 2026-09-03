@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { recordAccountEvent } from "@/lib/admin-store";
 import {
   PROFILE_COOKIE,
   SESSION_COOKIE,
@@ -10,6 +11,7 @@ import {
   sessionCookieOptions,
   userFromSession,
 } from "@/lib/auth";
+import { requestPlace } from "@/lib/visit";
 
 export async function POST(request: Request) {
   let name = "";
@@ -53,6 +55,15 @@ export async function POST(request: Request) {
     createProfileToken({ email: session.email, name, org }),
     profileCookieOptions(),
   );
+
+  const place = requestPlace(request);
+  await recordAccountEvent({
+    kind: "profile",
+    email: session.email,
+    ip: place.ip,
+    city: place.city,
+    country: place.country,
+  });
 
   return Response.json({
     user: userFromSession({
