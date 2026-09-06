@@ -223,8 +223,77 @@ export async function recordVisit(
       email: input.email,
     };
     store.visits = [visit, ...store.visits].slice(0, MAX_VISITS);
+    if (input.email) {
+      upsertSeenAccount(store, {
+        email: input.email,
+        ip: input.ip,
+        city: input.city,
+        country: input.country,
+      });
+    }
     return visit;
   });
+}
+
+function upsertSeenAccount(
+  store: AdminStore,
+  input: {
+    email: string;
+    ip?: string;
+    city?: string;
+    country?: string;
+    name?: string;
+    org?: string;
+  },
+) {
+  const email = input.email.toLowerCase().trim();
+  if (!email) return null;
+  const at = new Date().toISOString();
+  const existing = store.accounts.find((account) => account.email === email);
+  if (existing) {
+    existing.lastSeenAt = at;
+    if (!existing.lastSignInAt) existing.lastSignInAt = at;
+    if (existing.signInCount < 1) existing.signInCount = 1;
+    if (input.ip) existing.lastIp = input.ip;
+    if (input.city) existing.lastCity = input.city;
+    if (input.country) existing.lastCountry = input.country;
+    if (input.name && !existing.name) existing.name = input.name;
+    if (input.org && !existing.org) existing.org = input.org;
+    return existing;
+  }
+  const created: AccountRecord = {
+    email,
+    firstSeenAt: at,
+    lastSeenAt: at,
+    lastSignInAt: at,
+    magicLinkCount: 0,
+    signInCount: 1,
+    lastIp: input.ip ?? "",
+    lastCity: input.city ?? "",
+    lastCountry: input.country ?? "",
+    name: input.name,
+    org: input.org,
+  };
+  store.accounts = [created, ...store.accounts].slice(0, MAX_ACCOUNTS);
+  return created;
+}
+
+export async function ensureAccount(input: {
+  email: string;
+  ip?: string;
+  city?: string;
+  country?: string;
+  name?: string;
+  org?: string;
+}) {
+  const email = input.email.toLowerCase().trim();
+  if (!email) return null;
+  const store = await readStore();
+  const existing = store.accounts.find((account) => account.email === email);
+  if (existing && Date.now() - Date.parse(existing.lastSeenAt) < 5 * 60 * 1000) {
+    return existing;
+  }
+  return mutate((next) => upsertSeenAccount(next, { ...input, email }));
 }
 
 export async function recordAccountEvent(input: {

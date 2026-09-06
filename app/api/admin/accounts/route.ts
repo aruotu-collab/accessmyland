@@ -1,11 +1,21 @@
 export const dynamic = "force-dynamic";
 
 import { requireAdmin } from "@/lib/admin-guard";
-import { listAccounts, listEvents } from "@/lib/admin-store";
+import { ensureAccount, listAccounts, listEvents } from "@/lib/admin-store";
+import { requestPlace } from "@/lib/visit";
 
-export async function GET() {
+export async function GET(request: Request) {
   const admin = await requireAdmin();
   if (!admin) return Response.json({ error: "Forbidden" }, { status: 403 });
+  const place = requestPlace(request);
+  await ensureAccount({
+    email: admin.email,
+    ip: place.ip,
+    city: place.city,
+    country: place.country,
+    name: admin.name,
+    org: admin.org,
+  });
   const [accounts, events] = await Promise.all([listAccounts(), listEvents()]);
   return Response.json({ accounts, events });
 }
