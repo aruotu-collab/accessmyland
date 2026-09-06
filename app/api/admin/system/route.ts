@@ -1,5 +1,7 @@
+export const dynamic = "force-dynamic";
+
 import { requireAdmin } from "@/lib/admin-guard";
-import { visitStats } from "@/lib/admin-store";
+import { adminStorageKind, visitStats } from "@/lib/admin-store";
 
 export async function GET() {
   const admin = await requireAdmin();
@@ -13,8 +15,10 @@ export async function GET() {
       fromAddress: Boolean(process.env.RESEND_FROM),
       appUrl: Boolean(process.env.APP_URL),
       analytics: Boolean(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID),
+      blob: Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID),
     },
     runtime: process.env.VERCEL ? "vercel" : "local",
+    storage: adminStorageKind(),
     stats,
   });
 }

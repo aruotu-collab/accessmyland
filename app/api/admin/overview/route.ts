@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { requireAdmin } from "@/lib/admin-guard";
 import { listAccounts, listEvents, visitStats } from "@/lib/admin-store";
 

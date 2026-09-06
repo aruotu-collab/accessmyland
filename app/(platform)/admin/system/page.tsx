@@ -9,8 +9,10 @@ type SystemInfo = {
     fromAddress: boolean;
     appUrl: boolean;
     analytics: boolean;
+    blob: boolean;
   };
   runtime: "vercel" | "local";
+  storage?: "blob" | "file";
   stats: { totalVisits: number; accounts: number; planningOpen?: number };
 };
 
@@ -42,6 +44,7 @@ export default function AdminSystemPage() {
         { l: "From address", ok: info.env.fromAddress },
         { l: "Public site URL", ok: info.env.appUrl },
         { l: "Google Analytics", ok: info.env.analytics },
+        { l: "Visit log store", ok: info.env.blob },
       ]
     : [];
 
@@ -77,6 +80,14 @@ export default function AdminSystemPage() {
             <dt>Hosting</dt>
             <dd className="text-forest">
               {info?.runtime === "vercel" ? "Vercel production" : "Local development"}
+            </dd>
+          </div>
+          <div className="flex justify-between">
+            <dt>Visit and member log</dt>
+            <dd className="text-forest">
+              {info?.storage === "blob"
+                ? "Shared Vercel Blob"
+                : "Local file (not shared on Vercel)"}
             </dd>
           </div>
           <div className="flex justify-between">

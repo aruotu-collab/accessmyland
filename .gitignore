@@ -42,3 +42,6 @@ next-env.d.ts
 
 # admin visit / account log
 /data/*.json
+
+.vercel
+.env*

@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { cookies } from "next/headers";
 import { requireAdmin } from "@/lib/admin-guard";
 import { recordVisit } from "@/lib/admin-store";

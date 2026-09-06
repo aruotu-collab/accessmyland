@@ -1,6 +1,9 @@
 import { mkdir, readFile, writeFile } from "fs/promises";
 import path from "path";
+import { get, put } from "@vercel/blob";
 import type { DealSuggestion } from "./planning-watch";
+
+const BLOB_PATH = "accessmyland-admin.json";
 
 export type WebVisit = {
   id: string;
@@ -94,6 +97,14 @@ function normalizeStore(store: AdminStore): AdminStore {
   return store;
 }
 
+function useBlobStore() {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
+}
+
+export function adminStorageKind(): "blob" | "file" {
+  return useBlobStore() ? "blob" : "file";
+}
+
 function storePath() {
   if (process.env.VERCEL) {
     return path.join("/tmp", "accessmyland-admin.json");
@@ -101,20 +112,36 @@ function storePath() {
   return path.join(process.cwd(), "data", "accessmyland-admin.json");
 }
 
-async function readStore(): Promise<AdminStore> {
+function storeFromJson(raw: string) {
+  const parsed = JSON.parse(raw) as AdminStore;
+  return normalizeStore({
+    visits: Array.isArray(parsed.visits) ? parsed.visits : [],
+    accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
+    events: Array.isArray(parsed.events) ? parsed.events : [],
+    planning: Array.isArray(parsed.planning) ? parsed.planning : [],
+    planningMeta: parsed.planningMeta ?? emptyPlanningMeta(),
+  });
+}
+
+async function readFromBlob() {
+  const result = await get(BLOB_PATH, { access: "private", useCache: false });
+  if (!result || result.statusCode !== 200 || !result.stream) return emptyStore();
+  const raw = await new Response(result.stream).text();
+  if (!raw.trim()) return emptyStore();
+  try {
+    return storeFromJson(raw);
+  } catch {
+    throw new Error("Admin store blob is not valid JSON.");
+  }
+}
+
+async function readFromFile() {
   if (globalForStore.__amlAdminStore) {
     return normalizeStore(globalForStore.__amlAdminStore);
   }
   try {
     const raw = await readFile(storePath(), "utf8");
-    const parsed = JSON.parse(raw) as AdminStore;
-    const store = normalizeStore({
-      visits: Array.isArray(parsed.visits) ? parsed.visits : [],
-      accounts: Array.isArray(parsed.accounts) ? parsed.accounts : [],
-      events: Array.isArray(parsed.events) ? parsed.events : [],
-      planning: Array.isArray(parsed.planning) ? parsed.planning : [],
-      planningMeta: parsed.planningMeta ?? emptyPlanningMeta(),
-    });
+    const store = storeFromJson(raw);
     globalForStore.__amlAdminStore = store;
     return store;
   } catch {
@@ -124,7 +151,22 @@ async function readStore(): Promise<AdminStore> {
   }
 }
 
+async function readStore(): Promise<AdminStore> {
+  if (useBlobStore()) return readFromBlob();
+  return readFromFile();
+}
+
 async function persist(store: AdminStore) {
+  if (useBlobStore()) {
+    await put(BLOB_PATH, JSON.stringify(store), {
+      access: "private",
+      allowOverwrite: true,
+      addRandomSuffix: false,
+      contentType: "application/json",
+      cacheControlMaxAge: 60,
+    });
+    return;
+  }
   const file = storePath();
   await mkdir(path.dirname(file), { recursive: true });
   await writeFile(file, JSON.stringify(store), "utf8");
@@ -136,7 +178,7 @@ async function mutate<T>(fn: (store: AdminStore) => T): Promise<T> {
   const next = previous.then(async () => {
     const store = await readStore();
     result = fn(store);
-    globalForStore.__amlAdminStore = store;
+    if (!useBlobStore()) globalForStore.__amlAdminStore = store;
     await persist(store);
   });
   globalForStore.__amlAdminWrite = next.then(

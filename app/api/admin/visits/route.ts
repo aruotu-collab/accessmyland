@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { requireAdmin } from "@/lib/admin-guard";
 import { clearVisits, listVisits } from "@/lib/admin-store";
 
